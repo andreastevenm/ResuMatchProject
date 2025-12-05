@@ -9,6 +9,7 @@ import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
+# Paths for model/vect (kept for your ML job-field predictor)
 MODEL_PATH = "model.joblib"
 VECT_PATH = "vect.joblib"
 
@@ -25,9 +26,11 @@ DEFAULT_TRAIN = [
 app = Flask(__name__)
 CORS(app)
 
+# load spaCy model (ensure en_core_web_sm installed)
 nlp = spacy.load("en_core_web_sm")
 
 
+# ---------- model training / loading ----------
 def train_and_save_default_model():
     texts = [t for _, t in DEFAULT_TRAIN]
     labels = [lbl for lbl, _ in DEFAULT_TRAIN]
@@ -53,65 +56,78 @@ def load_model_or_train():
 
 
 clf, vect = load_model_or_train()
+# ---------- end ML ----------
 
 
-def train_model_from_csv(csv_path):
-    import csv
-    texts = []
-    labels = []
-    with open(csv_path, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            labels.append(row["field"])
-            texts.append(row["text"])
-    v = TfidfVectorizer(ngram_range=(1, 2), max_features=2000)
-    X = v.fit_transform(texts)
-    model = LogisticRegression(max_iter=2000)
-    model.fit(X, labels)
-    joblib.dump(model, MODEL_PATH)
-    joblib.dump(v, VECT_PATH)
-    return model, v
-
-
-# Skill aliases dictionary
+# ---------- improved skill aliases ----------
 SKILL_ALIASES = {
+    # languages/frameworks
     "python": "Python", "java": "Java", "javascript": "JavaScript",
     "typescript": "TypeScript", "c#": "C#", "c++": "C++", "go": "Go",
     "golang": "Go", "dart": "Dart", "flutter": "Flutter",
     "react native": "React Native", "reactjs": "React", "react": "React",
     "vue": "Vue.js", "angular": "Angular", "node.js": "Node.js",
     "nodejs": "Node.js", "node": "Node.js", "express": "Express",
+    "next.js": "Next.js", "nuxt": "Nuxt.js",
     "spring boot": "Spring Boot", "spring": "Spring", "django": "Django",
-    "flask": "Flask", "fastapi": "FastAPI", "html": "HTML", "css": "CSS",
-    "sass": "Sass", "less": "Less", "bootstrap": "Bootstrap",
-    "tailwind": "Tailwind CSS", "sql": "SQL", "nosql": "NoSQL",
-    "postgresql": "PostgreSQL", "mysql": "MySQL", "mongodb": "MongoDB",
-    "redis": "Redis", "elasticsearch": "Elasticsearch", "aws": "AWS",
-    "amazon web services": "AWS", "azure": "Azure", "gcp": "GCP",
-    "docker": "Docker", "kubernetes": "Kubernetes", "terraform": "Terraform",
-    "ci/cd": "CI/CD", "jenkins": "Jenkins", "github actions": "GitHub Actions",
-    "gitlab ci": "GitLab CI", "ansible": "Ansible", "linux": "Linux",
-    "bash": "Bash", "shell": "Shell", "microservices": "Microservices",
-    "rest api": "REST API", "graphql": "GraphQL", "kafka": "Kafka",
-    "rabbitmq": "RabbitMQ", "machine learning": "Machine Learning",
-    "ml": "Machine Learning", "data science": "Data Science",
+    "flask": "Flask", "fastapi": "FastAPI",
+
+    # web/frontend
+    "html": "HTML", "css": "CSS", "sass": "Sass", "less": "Less",
+    "bootstrap": "Bootstrap", "tailwind": "Tailwind CSS",
+
+    # db / storage / search
+    "sql": "SQL", "nosql": "NoSQL", "postgresql": "PostgreSQL", "mysql": "MySQL",
+    "mongodb": "MongoDB", "redis": "Redis", "elasticsearch": "Elasticsearch",
+
+    # cloud / infra / devops
+    "aws": "AWS", "amazon web services": "AWS", "azure": "Azure",
+    "gcp": "GCP", "google cloud": "GCP", "docker": "Docker",
+    "kubernetes": "Kubernetes", "terraform": "Terraform", "ci/cd": "CI/CD",
+    "jenkins": "Jenkins", "github actions": "GitHub Actions", "ansible": "Ansible",
+    "linux": "Linux", "bash": "Bash", "shell": "Shell", "sre": "SRE",
+
+    # messaging / architecture
+    "microservices": "Microservices", "rest api": "REST API", "graphql": "GraphQL",
+    "kafka": "Kafka", "rabbitmq": "RabbitMQ",
+
+    # data / ml
+    "machine learning": "Machine Learning", "ml": "Machine Learning",
+    "deep learning": "Deep Learning", "data science": "Data Science",
     "pandas": "pandas", "numpy": "numpy", "scikit-learn": "scikit-learn",
     "tensorflow": "TensorFlow", "pytorch": "PyTorch", "spark": "Apache Spark",
-    "hadoop": "Hadoop", "tableau": "Tableau", "power bi": "Power BI",
+
+    # misc / tooling
     "git": "Git", "github": "GitHub", "gitlab": "GitLab", "figma": "Figma",
     "ux": "UX", "ui": "UI", "design": "Design", "photoshop": "Photoshop",
-    "illustrator": "Illustrator", "excel": "Excel", "hibernate": "Hibernate",
-    "celery": "Celery", "api": "API", "nlp": "NLP",
-    "natural language processing": "NLP", "devops": "DevOps",
-    "site reliability engineering": "SRE", "sre": "SRE",
+    "illustrator": "Illustrator", "excel": "Excel",
+
+    # operations / backend
+    "api": "API", "restful": "REST API", "hibernate": "Hibernate",
+    "celery": "Celery",
+
+    # security / hardware / other IT
+    "cyber": "Cybersecurity", "cybersecurity": "Cybersecurity", "security": "Cybersecurity",
+    "hardware": "Computer Hardware", "computer hardware": "Computer Hardware",
+    "it support": "IT Support", "support": "IT Support",
+
+    # certifications & keywords often used in CVs
+    "certificate": "Certification", "certification": "Certification", "certified": "Certification",
+    "training": "Training",
+
+    # keep acronyms as uppercase
+    "sql server": "SQL Server",
 }
+# ---------- end skill aliases ----------
 
 
+# ---------- helpers ----------
 def extract_text_from_pdf(file_stream):
     reader = PdfReader(file_stream)
     txt = ""
     for page in reader.pages:
         txt += page.extract_text() or ""
+    txt = re.sub(r"\s+", " ", txt).strip()
     return txt
 
 
@@ -122,10 +138,8 @@ def extract_email(text):
 
 def extract_phone(text):
     text = text.replace("\u2013", "-").replace("\u2014", "-")
-
     raw_candidates = re.findall(r"(?:\+?\d[\d\-\s\(\)/]{6,}\d)", text)
     candidates = []
-
     for cand in raw_candidates:
         if re.search(r"\b(19|20)\d{2}\b", cand):
             continue
@@ -139,16 +153,20 @@ def extract_phone(text):
     def score_candidate(item):
         cand, digits = item
         s = 0
-        if cand.startswith("+"): s += 5
-        if digits.startswith("62"): s += 3
-        if re.match(r"^0?8", digits): s += 2
-        if 9 <= len(digits) <= 13: s += 2
+        if cand.startswith("+"):
+            s += 5
+        if digits.startswith("62"):
+            s += 3
+        if re.match(r"^0?8", digits):
+            s += 2
+        if 9 <= len(digits) <= 13:
+            s += 2
         sep_count = len(re.findall(r"[\s\-\(\)/]", cand))
         s += max(0, 2 - sep_count)
+        s += min(2, len(digits) - 7)
         return s
 
     best = max(candidates, key=score_candidate)[0]
-
     if best.startswith("+"):
         normalized = "+" + re.sub(r"[^\d]", "", best)
         normalized = re.sub(r"^\+{2,}", "+", normalized)
@@ -158,17 +176,14 @@ def extract_phone(text):
     final_digits = re.sub(r"\D", "", normalized)
     if not (8 <= len(final_digits) <= 15):
         return None
-
     return normalized
 
 
 def detect_skills(text: str, doc=None):
     lower = text.lower()
     normalized = re.sub(r"[^a-z0-9\+\#\.\s\-]", " ", lower)
-
     found = set()
     keys_sorted = sorted(SKILL_ALIASES.keys(), key=lambda s: -len(s))
-
     for key in keys_sorted:
         pattern = r"\b" + re.escape(key) + r"\b"
         if re.search(pattern, normalized):
@@ -177,7 +192,7 @@ def detect_skills(text: str, doc=None):
     if doc is None:
         try:
             doc = nlp(text[:20000])
-        except:
+        except Exception:
             doc = None
 
     if doc:
@@ -189,7 +204,9 @@ def detect_skills(text: str, doc=None):
                 found.add(SKILL_ALIASES[key])
 
     def sort_key(s):
-        return (0, s) if s.isupper() and len(s) <= 5 else (1, s.lower())
+        if s.upper() == s and len(s) <= 5:
+            return (0, s)
+        return (1, s.lower())
 
     return sorted(found, key=sort_key)
 
@@ -199,16 +216,28 @@ def predict_job_field(text):
     pred = clf.predict(X)[0]
     probs = clf.predict_proba(X)[0]
     classes = clf.classes_
-
     idx = list(classes).index(pred)
     confidence = round(float(probs[idx]) * 100, 1)
-
     top = sorted(zip(classes, probs), key=lambda x: x[1], reverse=True)[:3]
     top_formatted = [{"field": f, "prob": round(float(p) * 100, 1)} for f, p in top]
-
     return pred, confidence, top_formatted
 
 
+def calculate_match_score(found_skills, expected_skills_list, model_confidence):
+    if expected_skills_list:
+        expected_norm = [s.strip().lower() for s in expected_skills_list if s.strip()]
+        if len(expected_norm) == 0:
+            return 0
+        found_norm = [s.lower() for s in found_skills]
+        intersect = set(found_norm) & set(expected_norm)
+        score = int((len(intersect) / len(expected_norm)) * 100)
+        return score
+    else:
+        skill_score = min(100, len(found_skills) * 15)
+        return round((skill_score * 0.4) + (model_confidence * 0.6))
+
+
+# ---------- routes ----------
 @app.route("/")
 def home():
     return "ResuMatch backend running"
@@ -216,71 +245,69 @@ def home():
 
 @app.route("/analyze", methods=["POST"])
 def analyze_resume():
-    if "file" not in request.files:
+    files = []
+    if "files" in request.files:
+        files = request.files.getlist("files")
+    elif "file" in request.files:
+        files = [request.files["file"]]
+    else:
         return jsonify({"error": "No file uploaded"}), 400
 
-    file = request.files["file"]
+    # 🔥🔥 FIXED: expected skills always converted to lowercase
+    expected_skills_raw = request.form.get("expected_skills", "")
+    expected_skills_list = [
+        s.strip().lower() for s in expected_skills_raw.split(",") if s.strip()
+    ]
 
-    try:
-        text = extract_text_from_pdf(file)
-        if not text.strip():
-            return jsonify({"message": "PDF uploaded but contains no readable text", "text_preview": ""}), 200
+    results = []
 
-        doc = nlp(text[:20000])
-        email = extract_email(text)
-        phone = extract_phone(text)
-        skills = detect_skills(text, doc)
-        orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
-
-        predicted_field, confidence, top_candidates = predict_job_field(text)
-
-        skill_score = min(100, len(skills) * 15)
-        matching_score = round((skill_score * 0.4) + (confidence * 0.6))
-
-        preview = text[:700]
-
-        # Save to database (experience removed)
+    for file in files:
         try:
-            from database import get_connection
-            conn = get_connection()
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO resume_analysis 
-                (filename, email, phone, skills, education, matching_score, predicted_field, field_confidence, text_preview)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                file.filename,
-                email,
-                phone,
-                ", ".join(skills),
-                ", ".join(orgs),
-                matching_score,
-                predicted_field,
-                confidence,
-                preview
-            ))
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception as db_e:
-            print("DB save error:", db_e)
+            text = extract_text_from_pdf(file)
+            if not text.strip():
+                results.append({
+                    "filename": file.filename,
+                    "error": "PDF uploaded but contains no readable text",
+                    "text_preview": ""
+                })
+                continue
 
-        return jsonify({
-            "message": "Resume analyzed",
-            "language_detected": "en",
-            "email": email,
-            "phone": phone,
-            "skills_found": skills,
-            "education_found": orgs,
-            "matching_score": matching_score,
-            "predicted_field": predicted_field,
-            "field_confidence": confidence,
-            "top_field_candidates": top_candidates,
-            "text_preview": preview
-        }), 200
+            doc = nlp(text[:20000])
+            email = extract_email(text)
+            phone = extract_phone(text)
+            skills = detect_skills(text, doc)
+            orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            predicted_field, confidence, top_candidates = predict_job_field(text)
+            matching_score = calculate_match_score(skills, expected_skills_list, confidence)
+
+            recommendation = "Recommended" if matching_score >= 55 else "Not Suitable"
+
+            preview = text[:700]
+
+            results.append({
+                "filename": file.filename,
+                "message": "Resume analyzed",
+                "language_detected": "en",
+                "email": email,
+                "phone": phone,
+                "skills_found": skills,
+                "education_found": orgs,
+                "matching_score": matching_score,
+                "predicted_field": predicted_field,
+                "field_confidence": confidence,
+                "top_field_candidates": top_candidates,
+                "recommendation": recommendation,
+                "text_preview": preview
+            })
+
+        except Exception as e:
+            results.append({
+                "filename": getattr(file, "filename", "unknown"),
+                "error": str(e)
+            })
+
+    return jsonify({"resumes": results}), 200
 
 
 if __name__ == "__main__":
