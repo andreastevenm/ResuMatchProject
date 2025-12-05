@@ -9,14 +9,9 @@ import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
-# -----------------------
-# Config
-# -----------------------
 MODEL_PATH = "model.joblib"
 VECT_PATH = "vect.joblib"
 
-# Example small default training dataset (field -> example texts)
-# You can replace / expand this with your CSV and call train_model_from_csv
 DEFAULT_TRAIN = [
     ("Information Technology", "python developer backend react javascript sql system design"),
     ("Information Technology", "software engineer java spring microservices backend"),
@@ -27,17 +22,11 @@ DEFAULT_TRAIN = [
     ("Information Systems", "information systems erp database business process analysis"),
 ]
 
-# -----------------------
-# App init
-# -----------------------
 app = Flask(__name__)
 CORS(app)
 
 nlp = spacy.load("en_core_web_sm")
 
-# -----------------------
-# Training / Model utils
-# -----------------------
 def train_and_save_default_model():
     texts = [t for _, t in DEFAULT_TRAIN]
     labels = [lbl for lbl, _ in DEFAULT_TRAIN]
@@ -60,12 +49,9 @@ def load_model_or_train():
     else:
         return train_and_save_default_model()
 
-# Load (or train) model once at startup
 clf, vect = load_model_or_train()
 
-# Optional helper for re-training from CSV (not auto-called)
 def train_model_from_csv(csv_path):
-    # CSV should have columns: field,text
     import csv
     texts = []
     labels = []
@@ -82,9 +68,6 @@ def train_model_from_csv(csv_path):
     joblib.dump(v, VECT_PATH)
     return model, v
 
-# -----------------------
-# Helpers: extractors & classifiers
-# -----------------------
 SKILL_LIST = ["python","java","javascript","react","node","sql","html","css",
               "communication","leadership","teamwork","flutter","excel","audit","tax","design","figma","ux","ui"]
 
@@ -116,17 +99,15 @@ def predict_job_field(text):
     pred = clf.predict(X)[0]
     probs = clf.predict_proba(X)[0]
     classes = clf.classes_
-    # get probability for predicted class
+    
     idx = list(classes).index(pred)
     confidence = round(float(probs[idx]) * 100, 1)
-    # also return top 3 candidates
+    
     top = sorted(zip(classes, probs), key=lambda x: x[1], reverse=True)[:3]
     top_formatted = [{"field": f, "prob": round(float(p)*100,1)} for f,p in top]
     return pred, confidence, top_formatted
 
-# -----------------------
-# Routes
-# -----------------------
+# routing guyss
 @app.route("/")
 def home():
     return "ResuMatch backend running"
@@ -143,24 +124,23 @@ def analyze_resume():
         if not text.strip():
             return jsonify({"message":"PDF uploaded but contains no readable text","text_preview":""}), 200
 
-        # Basic NLP + extractors
-        doc = nlp(text[:20000])  # limit length for speed
+        # nlp nya
+        doc = nlp(text[:20000])  #limit length nya
         email = extract_email(text)
         phone = extract_phone(text)
         skills = detect_skills(text)
         orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
         dates = [ent.text for ent in doc.ents if ent.label_ == "DATE"]
 
-        # ML prediction
+        # ml predicction
         predicted_field, confidence, top_candidates = predict_job_field(text)
 
-        # Matching score: combine skills coverage + model confidence (simple formula)
         skill_score = min(100, len(skills) * 15)
         matching_score = round((skill_score * 0.4) + (confidence * 0.6))
 
         preview = text[:700]
 
-        # Save to DB if database module available (non-blocking)
+        # save to database
         try:
             from database import get_connection
             conn = get_connection()
@@ -185,7 +165,6 @@ def analyze_resume():
             cur.close()
             conn.close()
         except Exception as db_e:
-            # don't fail the request just because DB failed; log to console
             print("DB save error:", db_e)
 
         return jsonify({
@@ -206,8 +185,5 @@ def analyze_resume():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# -----------------------
-# Run
-# -----------------------
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

@@ -5,5 +5,5 @@ def get_connection():
         host="localhost",
         database="resumatch",
         user="postgres",
-        password="asmforeal11"
+        password="andreas11"
     )

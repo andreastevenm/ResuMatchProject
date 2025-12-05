@@ -45,7 +45,7 @@ export default function App() {
         Resumatch
       </div>
 
-      {/* TITLE */}
+      {/* titlee */}
       <header className="text-center mt-2">
         <h1 className="text-6xl font-bold tracking-tight text-gray-900">
           Resumatch Analysis
@@ -55,10 +55,10 @@ export default function App() {
         </p>
       </header>
 
-      {/* MAIN SECTION */}
+      {/* main section */}
       <div className="mt-10 flex justify-center">
         <div className="w-[95%] max-w-7xl grid grid-cols-3 gap-10 bg-gray-100 p-10 rounded-3xl">
-          {/* LEFT PANEL */}
+          {/* left section */}
           <aside className="col-span-1 bg-purple-300/70 rounded-3xl p-10 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-8">
               Requirements
@@ -86,9 +86,9 @@ export default function App() {
             </ul>
           </aside>
 
-          {/* RIGHT PANEL */}
+          {/* right section */}
           <section className="col-span-2 bg-white rounded-3xl p-12 shadow-md border-2 border-blue-300 flex flex-col items-center">
-            {/* Upload */}
+            {/* upload */}
             <p className="text-xl font-semibold text-gray-800">
               Drag & Drop your PDF file here
             </p>
@@ -113,7 +113,7 @@ export default function App() {
               </p>
             )}
 
-            {/* ANALYZE BUTTON */}
+            {/* button */}
             <button
               onClick={analyzeResume}
               className="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold transition"
@@ -121,17 +121,17 @@ export default function App() {
               Analyze Resume
             </button>
 
-            {/* LOADING */}
+            {/* loading */}
             {loading && (
               <p className="mt-4 text-lg font-semibold text-gray-700 animate-pulse">
-                ⏳ Wait for backend is building...
+                Loading...
               </p>
             )}
           </section>
         </div>
       </div>
 
-      {/* RESULT OUTPUT */}
+      {/* result output */}
       {result && (
         <div className="max-w-4xl mx-auto mt-10 bg-white shadow-md p-8 rounded-2xl border">
           <h2 className="text-2xl font-bold mb-4 text-gray-900">
