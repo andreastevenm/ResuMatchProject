@@ -208,7 +208,7 @@ export default function App() {
                     ))}
                   </ul>
 
-                  <p className="mt-6 font-semibold text-lg">Education (ORG):</p>
+                  <p className="mt-6 font-semibold text-lg">Educatio:</p>
                   <ul className="list-disc ml-6 text-base">
                     {res.education_found?.map((e: string, i: number) => (
                       <li key={i}>{e}</li>

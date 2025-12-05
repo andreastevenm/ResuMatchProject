@@ -6,6 +6,7 @@ import spacy
 import re
 import os
 import joblib
+from database import get_db_connection
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
@@ -26,7 +27,7 @@ DEFAULT_TRAIN = [
 app = Flask(__name__)
 CORS(app)
 
-# load spaCy model (ensure en_core_web_sm installed)
+# Load spaCy model (make sure en_core_web_sm is installed)
 nlp = spacy.load("en_core_web_sm")
 
 
@@ -141,6 +142,7 @@ def extract_phone(text):
     raw_candidates = re.findall(r"(?:\+?\d[\d\-\s\(\)/]{6,}\d)", text)
     candidates = []
     for cand in raw_candidates:
+        # skip year-like tokens
         if re.search(r"\b(19|20)\d{2}\b", cand):
             continue
         digits = re.sub(r"\D", "", cand)
@@ -224,6 +226,7 @@ def predict_job_field(text):
 
 
 def calculate_match_score(found_skills, expected_skills_list, model_confidence):
+    # found_skills: list of display names (e.g., "Python")
     if expected_skills_list:
         expected_norm = [s.strip().lower() for s in expected_skills_list if s.strip()]
         if len(expected_norm) == 0:
@@ -237,6 +240,46 @@ def calculate_match_score(found_skills, expected_skills_list, model_confidence):
         return round((skill_score * 0.4) + (model_confidence * 0.6))
 
 
+# ---------- DB insert helper ----------
+def insert_resume_to_db(record: dict):
+    """
+    record keys:
+    filename, email, phone_number, skills_found (list), education_found (list),
+    matching_score, recommendation, text_preview
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO resume_analysis
+            (filename, email, phone_number, skills_found, education_found, matching_score, recommendation, text_preview)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """,
+            (
+                record.get("filename"),
+                record.get("email"),
+                record.get("phone_number"),
+                record.get("skills_found", []),     # psycopg2 will convert python list -> SQL array
+                record.get("education_found", []),
+                record.get("matching_score"),
+                record.get("recommendation"),
+                record.get("text_preview"),
+            ),
+        )
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        # don't raise — log for debug
+        print("DB insert error:", e)
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
 # ---------- routes ----------
 @app.route("/")
 def home():
@@ -245,6 +288,7 @@ def home():
 
 @app.route("/analyze", methods=["POST"])
 def analyze_resume():
+    # accept multiple files under key 'files' or single 'file'
     files = []
     if "files" in request.files:
         files = request.files.getlist("files")
@@ -253,11 +297,9 @@ def analyze_resume():
     else:
         return jsonify({"error": "No file uploaded"}), 400
 
-    # 🔥🔥 FIXED: expected skills always converted to lowercase
+    # expected skills (always convert to lowercase here)
     expected_skills_raw = request.form.get("expected_skills", "")
-    expected_skills_list = [
-        s.strip().lower() for s in expected_skills_raw.split(",") if s.strip()
-    ]
+    expected_skills_list = [s.strip().lower() for s in expected_skills_raw.split(",") if s.strip()]
 
     results = []
 
@@ -284,6 +326,21 @@ def analyze_resume():
             recommendation = "Recommended" if matching_score >= 55 else "Not Suitable"
 
             preview = text[:700]
+
+            # prepare record for DB (match your table columns)
+            record = {
+                "filename": file.filename,
+                "email": email,
+                "phone_number": phone,
+                "skills_found": skills,
+                "education_found": orgs,
+                "matching_score": matching_score,
+                "recommendation": recommendation,
+                "text_preview": preview
+            }
+
+            # insert to DB (best-effort)
+            insert_resume_to_db(record)
 
             results.append({
                 "filename": file.filename,
